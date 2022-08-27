@@ -2,9 +2,9 @@ module Escrow::EscrowAccount {
 
     use std::signer;
     use aptos_framework::account;
-    use aptos_framework::coins;
     use aptos_framework::coin;
     use aptos_framework::managed_coin;
+    use aptos_framework::byte_conversions;
 
     // Errors
     const EINVALID_BALANCE: u64 = 0;
@@ -23,7 +23,7 @@ module Escrow::EscrowAccount {
         let (vault, vault_signer_cap) = account::create_resource_account(initializer, seeds);
         let resource_account_from_cap = account::create_signer_with_capability(&vault_signer_cap);
         move_to<ResourceInfo>(&resource_account_from_cap, ResourceInfo{resource_cap: vault_signer_cap, source: signer::address_of(initializer)});
-        coins::register<CoinType>(&vault);
+        managed_coin::register<CoinType>(&vault);
 
         let vault_addr = signer::address_of(&vault); 
         coin::transfer<CoinType>(initializer, vault_addr, amount);
@@ -73,23 +73,23 @@ module Escrow::EscrowAccount {
         use std::vector;
         let bytes = bcs::to_bytes(&source);
         vector::append(&mut bytes, seed);
-        let addr = account::create_address_for_test(hash::sha3_256(bytes));
+        let addr = byte_conversions::to_address(hash::sha3_256(bytes));
         addr
     }
 
-    #[test(alice = @0x1, bob = @0x2, escrowModule = @Escrow)]
-    public entry fun can_initialize(alice: signer, escrowModule: signer, bob: signer) acquires ResourceInfo {
+    #[test(alice = @0x4, bob = @0x2, escrowModule = @Escrow)]
+    public entry fun can_initialize(alice: signer, escrowModule: signer) { 
         let alice_addr = signer::address_of(&alice);
         let bob_addr = signer::address_of(&bob);
         // let us create a coin
         managed_coin::initialize<FirstCoin>(&escrowModule, b"first", b"F", 9, false);
         managed_coin::initialize<SecondCoin>(&escrowModule, b"second", b"S", 9, false);
         // registering the alice account 
-        coin::register_for_test<FirstCoin>(&alice);
-        coin::register_for_test<FirstCoin>(&bob);
+        managed_coin::register<FirstCoin>(&alice);
+        managed_coin::register<FirstCoin>(&bob);
 
-        coin::register_for_test<SecondCoin>(&alice);
-        coin::register_for_test<SecondCoin>(&bob);
+        managed_coin::register<SecondCoin>(&alice);
+        managed_coin::register<SecondCoin>(&bob);
 
         managed_coin::mint<FirstCoin>(&escrowModule, alice_addr, 10000);
         managed_coin::mint<SecondCoin>(&escrowModule, bob_addr, 10000);
